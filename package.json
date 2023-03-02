@@ -5,10 +5,10 @@
     "e_kyc": "bin/e_kyc.js"
   },
   "scripts": {
-    "build": "rm -rf dist && esbuild ./src/* --entry-names=[dir]/[name]/index --bundle --minify --sourcemap --platform=node --target=node16.14 --outdir=dist",
+    "build": "rm -rf dist && esbuild infra/src/* --entry-names=[dir]/[name]/index --bundle --minify --sourcemap --platform=node --target=node16.14 --outdir=dist",
     "package": "cd dist && for f in * ; do ([ -d \"$f\" ] && cd $f && zip ../$f.zip *) ; done",
-    "package:unbundled": "rm -rf node_modules unbundled.zip && npm i --only=prod && zip -r unbundled.zip src/* node_modules/*",
-    "package:large": "rm -rf node_modules large.zip && npm i && zip -r large.zip src/* node_modules/*",
+    "package:unbundled": "rm -rf node_modules unbundled.zip && npm i --only=prod && zip -r unbundled.zip infra/src/* node_modules/*",
+    "package:large": "rm -rf node_modules large.zip && npm i && zip -r large.zip infra/src/* node_modules/*",
     "predeploy": "npm i && npm run build && npm run package:unbundled && npm run package:large",
     "deploy": "cd infra && npm run cdk deploy",
     "destroy": "cd infra && npm run cdk destroy"
