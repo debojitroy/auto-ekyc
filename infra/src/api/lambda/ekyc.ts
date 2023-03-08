@@ -48,7 +48,6 @@ export const eKycHandler: APIGatewayProxyWebsocketHandlerV2 = async (event: APIG
     }
 
     // Validate body
-
     if (!body) {
         return {
             statusCode: 400,
