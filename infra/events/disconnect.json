@@ -1,0 +1,42 @@
+{
+  "headers": {
+    "Host": "hc5ko8m5rc.execute-api.ap-south-1.amazonaws.com",
+    "x-api-key": "",
+    "X-Forwarded-For": "",
+    "x-restapi": ""
+  },
+  "multiValueHeaders": {
+    "Host": [
+      "hc5ko8m5rc.execute-api.ap-south-1.amazonaws.com"
+    ],
+    "x-api-key": [
+      ""
+    ],
+    "X-Forwarded-For": [
+      ""
+    ],
+    "x-restapi": [
+      ""
+    ]
+  },
+  "requestContext": {
+    "routeKey": "$disconnect",
+    "disconnectStatusCode": 1005,
+    "eventType": "DISCONNECT",
+    "extendedRequestId": "BL1K6FYThcwFelw=",
+    "requestTime": "03/Mar/2023:03:25:31 +0000",
+    "messageDirection": "IN",
+    "disconnectReason": "Client-side close frame status not set",
+    "stage": "dev",
+    "connectedAt": 1677813566807,
+    "requestTimeEpoch": 1677813931974,
+    "identity": {
+      "sourceIp": "52.95.75.18"
+    },
+    "requestId": "BL1K6FYThcwFelw=",
+    "domainName": "hc5ko8m5rc.execute-api.ap-south-1.amazonaws.com",
+    "connectionId": "BL0R3fnIhcwCGCQ=",
+    "apiId": "hc5ko8m5rc"
+  },
+  "isBase64Encoded": false
+}

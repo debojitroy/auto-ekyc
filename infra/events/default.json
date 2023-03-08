@@ -1,0 +1,22 @@
+{
+  "requestContext": {
+    "routeKey": "$default",
+    "messageId": "BL1CfftDhcwCGCQ=",
+    "eventType": "MESSAGE",
+    "extendedRequestId": "BL1CfE5aBcwFm_g=",
+    "requestTime": "03/Mar/2023:03:24:38 +0000",
+    "messageDirection": "IN",
+    "stage": "dev",
+    "connectedAt": 1677813566807,
+    "requestTimeEpoch": 1677813878032,
+    "identity": {
+      "sourceIp": "52.95.75.18"
+    },
+    "requestId": "BL1CfE5aBcwFm_g=",
+    "domainName": "hc5ko8m5rc.execute-api.ap-south-1.amazonaws.com",
+    "connectionId": "BL0R3fnIhcwCGCQ=",
+    "apiId": "hc5ko8m5rc"
+  },
+  "body": "helo",
+  "isBase64Encoded": false
+}
