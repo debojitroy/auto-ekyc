@@ -4,7 +4,7 @@ import {
     APIGatewayProxyWebsocketHandlerV2,
     APIGatewayProxyWebsocketEventV2
 } from 'aws-lambda';
-import {eKycRequestHandler, EKycRequest} from "../../handlers/eKycRequestHandler";
+import {eKycRequestHandler, EKycRequest} from "../../../handlers/eKycRequestHandler";
 
 export interface EKycRequestBody {
     name: string;
