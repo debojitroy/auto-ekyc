@@ -1,27 +1,32 @@
 import * as cdk from 'aws-cdk-lib';
+import {RemovalPolicy} from 'aws-cdk-lib';
 import {Construct} from 'constructs';
-import * as apiGwV2 from "@aws-cdk/aws-apigatewayv2-alpha";
-import {WebSocketStage} from "@aws-cdk/aws-apigatewayv2-alpha";
-import {WebSocketLambdaIntegration} from "@aws-cdk/aws-apigatewayv2-integrations-alpha";
+// import * as apiGwV2 from "@aws-cdk/aws-apigatewayv2-alpha";
+// import {WebSocketStage} from "@aws-cdk/aws-apigatewayv2-alpha";
+// import {WebSocketLambdaIntegration} from "@aws-cdk/aws-apigatewayv2-integrations-alpha";
 import {NodejsFunction} from "aws-cdk-lib/aws-lambda-nodejs";
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as logs from 'aws-cdk-lib/aws-logs';
+import {RetentionDays} from 'aws-cdk-lib/aws-logs';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import {BillingMode} from 'aws-cdk-lib/aws-dynamodb';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as stepFunction from 'aws-cdk-lib/aws-stepfunctions';
-import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
+import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
+import {LogLevel} from 'aws-cdk-lib/aws-stepfunctions';
+
+// import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
 
 export class EKycInfraStack extends cdk.Stack {
     constructor(scope: Construct, id: string, props?: cdk.StackProps) {
         super(scope, id, props);
 
-        const partitionKey = 'partition_key';
-
         const eKycJobsTable = new dynamodb.Table(this, 'eKyc-jobs-table', {
-            partitionKey: {name: 'connection_id', type: dynamodb.AttributeType.STRING},
-            sortKey: {name: 'tracking_id', type: dynamodb.AttributeType.STRING},
+            partitionKey: {name: 'p_key', type: dynamodb.AttributeType.STRING},
+            sortKey: {name: 's_key', type: dynamodb.AttributeType.STRING},
             billingMode: BillingMode.PAY_PER_REQUEST,
+            removalPolicy: cdk.RemovalPolicy.DESTROY,
         });
 
         const eKycImageBucket = new s3.Bucket(this, 'eKyc-image-bucket', {
@@ -40,118 +45,154 @@ export class EKycInfraStack extends cdk.Stack {
             },
         });
 
-        const connectHandler = new NodejsFunction(this, 'eKyc-connect-handler', {
-            entry: 'src/api/lambda/connect.ts',
-            handler: 'handler',
-            runtime: lambda.Runtime.NODEJS_18_X,
-        });
+        // const connectHandler = new NodejsFunction(this, 'eKyc-connect-handler', {
+        //     entry: 'src/api/lambda/connect.ts',
+        //     handler: 'handler',
+        //     runtime: lambda.Runtime.NODEJS_18_X,
+        // });
+        //
+        // const disconnectHandler = new NodejsFunction(this, 'eKyc-disconnect-handler', {
+        //     entry: 'src/api/lambda/disconnect.ts',
+        //     handler: 'handler',
+        //     runtime: lambda.Runtime.NODEJS_18_X,
+        // });
+        //
+        // const notFoundHandler = new NodejsFunction(this, 'eKyc-not-found-handler', {
+        //     entry: 'src/api/lambda/not-found.ts',
+        //     handler: 'handler',
+        //     runtime: lambda.Runtime.NODEJS_18_X,
+        // });
+        //
+        // const eKycCreateHandler = new NodejsFunction(this, 'eKyc-create-route-handler', {
+        //     entry: 'src/api/lambda/ekyc/create-request.ts',
+        //     handler: 'eKycCreateHandler',
+        //     runtime: lambda.Runtime.NODEJS_18_X,
+        //     environment: {
+        //         'DYNAMODB_TABLE': eKycJobsTable.tableName,
+        //     }
+        // });
+        //
+        // const eKycUploadHandler = new NodejsFunction(this, 'eKyc-upload-route-handler', {
+        //     entry: 'src/api/lambda/ekyc/upload-image.ts',
+        //     handler: 'eKycUploadImageHandler',
+        //     runtime: lambda.Runtime.NODEJS_18_X,
+        //     environment: {
+        //         'DYNAMODB_TABLE': eKycJobsTable.tableName,
+        //         'S3_BUCKET': eKycImageBucket.bucketName,
+        //     }
+        // });
+        //
+        // const webSocketApi = new apiGwV2.WebSocketApi(this, 'eKyc-api-ws', {
+        //     connectRouteOptions: {
+        //         integration: new WebSocketLambdaIntegration('eKyc-api-connect-handler', connectHandler),
+        //         returnResponse: true
+        //     },
+        //     defaultRouteOptions: {
+        //         integration: new WebSocketLambdaIntegration('eKyc-api-default-handler', notFoundHandler),
+        //         returnResponse: true
+        //     },
+        //     disconnectRouteOptions: {
+        //         integration: new WebSocketLambdaIntegration('eKyc-api-disconnect-handler', disconnectHandler),
+        //         returnResponse: true
+        //     },
+        //     routeSelectionExpression: '$request.body.action',
+        // });
+        //
+        // webSocketApi.addRoute(
+        //     'ekyc/create',
+        //     {
+        //         integration: new WebSocketLambdaIntegration('eKyc-api-eKyc-create-handler', eKycCreateHandler),
+        //         returnResponse: true,
+        //     }
+        // );
+        //
+        // webSocketApi.addRoute(
+        //     'ekyc/upload',
+        //     {
+        //         integration: new WebSocketLambdaIntegration('eKyc-api-eKyc-upload-handler', eKycUploadHandler),
+        //         returnResponse: true,
+        //     }
+        // );
+        //
+        // new WebSocketStage(this, 'eKyc-api-stage-dev', {
+        //     webSocketApi,
+        //     stageName: 'dev',
+        //     autoDeploy: true,
+        // });
 
-        const disconnectHandler = new NodejsFunction(this, 'eKyc-disconnect-handler', {
-            entry: 'src/api/lambda/disconnect.ts',
-            handler: 'handler',
-            runtime: lambda.Runtime.NODEJS_18_X,
-        });
-
-        const notFoundHandler = new NodejsFunction(this, 'eKyc-not-found-handler', {
-            entry: 'src/api/lambda/not-found.ts',
-            handler: 'handler',
-            runtime: lambda.Runtime.NODEJS_18_X,
-        });
-
-        const eKycCreateHandler = new NodejsFunction(this, 'eKyc-create-route-handler', {
-            entry: 'src/api/lambda/ekyc/create-request.ts',
-            handler: 'eKycCreateHandler',
+        const eKycSfnValidateRequestHandler = new NodejsFunction(this, 'eKyc-sfn-validate-request-handler', {
+            entry: 'src/state-machine/lambdas/validate.ts',
+            handler: 'validateHandler',
             runtime: lambda.Runtime.NODEJS_18_X,
             environment: {
                 'DYNAMODB_TABLE': eKycJobsTable.tableName,
-            }
+            },
+            logRetention: RetentionDays.THREE_DAYS,
+            timeout: cdk.Duration.seconds(60),
         });
 
-        const eKycUploadHandler = new NodejsFunction(this, 'eKyc-upload-route-handler', {
-            entry: 'src/api/lambda/ekyc/upload-image.ts',
-            handler: 'eKycUploadImageHandler',
-            runtime: lambda.Runtime.NODEJS_18_X,
-            environment: {
-                'DYNAMODB_TABLE': eKycJobsTable.tableName,
-                'S3_BUCKET': eKycImageBucket.bucketName,
-            }
+
+        const sfnValidationTask = new tasks.LambdaInvoke(this, 'sfn-validate-request', {
+            lambdaFunction: eKycSfnValidateRequestHandler,
+            outputPath: '$',
         });
 
-        const webSocketApi = new apiGwV2.WebSocketApi(this, 'eKyc-api-ws', {
-            connectRouteOptions: {
-                integration: new WebSocketLambdaIntegration('eKyc-api-connect-handler', connectHandler),
-                returnResponse: true
-            },
-            defaultRouteOptions: {
-                integration: new WebSocketLambdaIntegration('eKyc-api-default-handler', notFoundHandler),
-                returnResponse: true
-            },
-            disconnectRouteOptions: {
-                integration: new WebSocketLambdaIntegration('eKyc-api-disconnect-handler', disconnectHandler),
-                returnResponse: true
-            },
-            routeSelectionExpression: '$request.body.action',
+        const sfnSuccess = new stepFunction.Succeed(this, 'eKyc-state-machine-succeed', {
+            comment: 'eKyc state machine succeed',
+            outputPath: '$',
         });
 
-        webSocketApi.addRoute(
-            'ekyc/create',
-            {
-                integration: new WebSocketLambdaIntegration('eKyc-api-eKyc-create-handler', eKycCreateHandler),
-                returnResponse: true,
-            }
-        );
-
-        webSocketApi.addRoute(
-            'ekyc/upload',
-            {
-                integration: new WebSocketLambdaIntegration('eKyc-api-eKyc-upload-handler', eKycUploadHandler),
-                returnResponse: true,
-            }
-        );
-
-        new WebSocketStage(this, 'eKyc-api-stage-dev', {
-            webSocketApi,
-            stageName: 'dev',
-            autoDeploy: true,
+        const sfnFailure = new stepFunction.Fail(this, 'eKyc-state-machine-fail', {
+            comment: 'eKyc state machine failed',
+            error: '$.message',
         });
 
         const eKycStateMachine = new stepFunction.StateMachine(this, 'eKyc-state-machine', {
-            definition: new stepFunction.Succeed(this, 'eKyc-state-machine-succeed', {
-                comment: 'eKyc state machine succeed',
-                outputPath: '$.Payload',
-            }),
+            definition: sfnValidationTask.next(new stepFunction.Choice(this, 'Is Valid?')
+                .when(stepFunction.Condition.booleanEquals('$.Payload.valid', true), sfnSuccess)
+                .otherwise(sfnFailure)),
             timeout: cdk.Duration.seconds(300),
             stateMachineType: stepFunction.StateMachineType.EXPRESS,
-        });
-
-        const eKycQueueHandler = new NodejsFunction(this, 'eKyc-queue-handler', {
-            entry: 'src/sqs/trigger-step-function.ts',
-            handler: 'triggerStepFunction',
-            runtime: lambda.Runtime.NODEJS_18_X,
-            environment: {
-                'EKYC_STEP_FUNCTION_ARN': eKycStateMachine.stateMachineArn,
+            logs: {
+                level: LogLevel.ALL,
+                includeExecutionData: true,
+                destination: new logs.LogGroup(this, 'eKyc-state-machine-logs', {
+                    retention: RetentionDays.FIVE_DAYS,
+                    removalPolicy: RemovalPolicy.DESTROY,
+                })
             }
         });
 
-        eKycJobsTable.grantReadWriteData(eKycCreateHandler);
-        eKycJobsTable.grantReadWriteData(eKycUploadHandler);
+        eKycJobsTable.grantReadData(eKycSfnValidateRequestHandler);
 
-        eKycImageBucket.grantReadWrite(eKycUploadHandler);
-
-        eKycStateMachine.grantStartExecution(eKycQueueHandler);
-        eKycQueue.grantConsumeMessages(eKycQueueHandler);
-
-        const eKycLambdaSource = new lambdaEventSources.SqsEventSource(eKycQueue, {
-            batchSize: 1,
-        });
-
-        eKycQueueHandler.addEventSource(eKycLambdaSource);
-
-        new cdk.CfnOutput(this, 'eKyc-api-url', {
-            value: webSocketApi.apiEndpoint,
-            description: 'eKyc API WebSocket URL',
-            exportName: 'eKyc:WebSocketUrl',
-        });
+        // const eKycQueueHandler = new NodejsFunction(this, 'eKyc-queue-handler', {
+        //     entry: 'src/sqs/trigger-step-function.ts',
+        //     handler: 'triggerStepFunction',
+        //     runtime: lambda.Runtime.NODEJS_18_X,
+        //     environment: {
+        //         'EKYC_STEP_FUNCTION_ARN': eKycStateMachine.stateMachineArn,
+        //     }
+        // });
+        //
+        // eKycJobsTable.grantReadWriteData(eKycCreateHandler);
+        // eKycJobsTable.grantReadWriteData(eKycUploadHandler);
+        //
+        // eKycImageBucket.grantReadWrite(eKycUploadHandler);
+        //
+        // eKycStateMachine.grantStartExecution(eKycQueueHandler);
+        // eKycQueue.grantConsumeMessages(eKycQueueHandler);
+        //
+        // const eKycLambdaSource = new lambdaEventSources.SqsEventSource(eKycQueue, {
+        //     batchSize: 1,
+        // });
+        //
+        // eKycQueueHandler.addEventSource(eKycLambdaSource);
+        //
+        // new cdk.CfnOutput(this, 'eKyc-api-url', {
+        //     value: webSocketApi.apiEndpoint,
+        //     description: 'eKyc API WebSocket URL',
+        //     exportName: 'eKyc:WebSocketUrl',
+        // });
 
         new cdk.CfnOutput(this, 'eKyc-table-name', {
             value: eKycJobsTable.tableName,
@@ -183,22 +224,28 @@ export class EKycInfraStack extends cdk.Stack {
             exportName: 'eKyc:StateMachineArn',
         });
 
-        new cdk.CfnOutput(this, 'eKyc-queue-handler-name', {
-            value: eKycQueueHandler.functionName,
-            description: 'eKyc Queue Handler Name',
-            exportName: 'eKyc:QueueHandlerName',
+        new cdk.CfnOutput(this, 'eKyc-sfn-validate-request-handler-name', {
+            value: eKycSfnValidateRequestHandler.functionName,
+            description: 'eKyc State Machine Validate Request Handler Name',
+            exportName: 'eKyc:sfn:validateRequestHandlerName',
         });
 
-        new cdk.CfnOutput(this, 'eKyc-create-route-handler-name', {
-            value: eKycCreateHandler.functionName,
-            description: 'eKyc Create Route Handler Name',
-            exportName: 'eKyc:CreateRouteHandlerName',
-        });
-
-        new cdk.CfnOutput(this, 'eKyc-upload-route-handler-name', {
-            value: eKycUploadHandler.functionName,
-            description: 'eKyc Upload Route Handler Name',
-            exportName: 'eKyc:UploadRouteHandlerName',
-        });
+        // new cdk.CfnOutput(this, 'eKyc-queue-handler-name', {
+        //     value: eKycQueueHandler.functionName,
+        //     description: 'eKyc Queue Handler Name',
+        //     exportName: 'eKyc:QueueHandlerName',
+        // });
+        //
+        // new cdk.CfnOutput(this, 'eKyc-create-route-handler-name', {
+        //     value: eKycCreateHandler.functionName,
+        //     description: 'eKyc Create Route Handler Name',
+        //     exportName: 'eKyc:CreateRouteHandlerName',
+        // });
+        //
+        // new cdk.CfnOutput(this, 'eKyc-upload-route-handler-name', {
+        //     value: eKycUploadHandler.functionName,
+        //     description: 'eKyc Upload Route Handler Name',
+        //     exportName: 'eKyc:UploadRouteHandlerName',
+        // });
     }
 }

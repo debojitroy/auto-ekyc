@@ -21,8 +21,8 @@ export const getItem = async (tableName: string, partition_key: string, sort_key
     const params = {
         TableName: tableName,
         Key: {
-            connection_id: {S: partition_key},
-            tracking_id: {S: sort_key},
+            p_key: {S: partition_key},
+            s_key: {S: sort_key},
         }
     };
 
@@ -39,8 +39,8 @@ export const updateItem = async (tableName: string, partition_key: string, sort_
     const params = {
         TableName: tableName,
         Key: {
-            connection_id: {S: partition_key},
-            tracking_id: {S: sort_key},
+            p_key: {S: partition_key},
+            s_key: {S: sort_key},
         },
         AttributeUpdates: item,
         ReturnValues: 'ALL'
