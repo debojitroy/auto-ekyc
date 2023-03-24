@@ -43,7 +43,7 @@ export const updateItem = async (tableName: string, partition_key: string, sort_
             s_key: {S: sort_key},
         },
         AttributeUpdates: item,
-        ReturnValues: 'ALL'
+        ReturnValues: 'ALL_NEW'
     };
     try {
         return await client.updateItem(params);

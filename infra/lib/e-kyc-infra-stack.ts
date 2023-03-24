@@ -4,6 +4,7 @@ import {Construct} from 'constructs';
 // import * as apiGwV2 from "@aws-cdk/aws-apigatewayv2-alpha";
 // import {WebSocketStage} from "@aws-cdk/aws-apigatewayv2-alpha";
 // import {WebSocketLambdaIntegration} from "@aws-cdk/aws-apigatewayv2-integrations-alpha";
+import * as iam from 'aws-cdk-lib/aws-iam';
 import {NodejsFunction} from "aws-cdk-lib/aws-lambda-nodejs";
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as logs from 'aws-cdk-lib/aws-logs';
@@ -131,10 +132,15 @@ export class EKycInfraStack extends cdk.Stack {
             timeout: cdk.Duration.seconds(60),
         });
 
-
-        const sfnValidationTask = new tasks.LambdaInvoke(this, 'sfn-validate-request', {
-            lambdaFunction: eKycSfnValidateRequestHandler,
-            outputPath: '$',
+        const eKycSfnFacialMatchHandler = new NodejsFunction(this, 'eKyc-sfn-facial-match-handler', {
+            entry: 'src/state-machine/lambdas/facial-match.ts',
+            handler: 'facialMatch',
+            runtime: lambda.Runtime.NODEJS_18_X,
+            environment: {
+                'DYNAMODB_TABLE': eKycJobsTable.tableName,
+            },
+            logRetention: RetentionDays.THREE_DAYS,
+            timeout: cdk.Duration.seconds(90),
         });
 
         const sfnSuccess = new stepFunction.Succeed(this, 'eKyc-state-machine-succeed', {
@@ -147,10 +153,27 @@ export class EKycInfraStack extends cdk.Stack {
             error: '$.message',
         });
 
+        const sfnFacialMatchTask = new tasks.LambdaInvoke(this, 'sfn-facial-match-request', {
+            lambdaFunction: eKycSfnFacialMatchHandler,
+            inputPath: '$.Payload.request',
+            outputPath: '$',
+        });
+
+        const sfnFacialMatchDefinition = sfnFacialMatchTask.next(new stepFunction.Choice(this, 'Face Matches?')
+            .when(stepFunction.Condition.booleanEquals('$.Payload.match', true), sfnSuccess)
+            .otherwise(sfnFailure));
+
+        const sfnValidationTask = new tasks.LambdaInvoke(this, 'sfn-validate-request', {
+            lambdaFunction: eKycSfnValidateRequestHandler,
+            outputPath: '$',
+        });
+
+        const sfnValidationDefinition = sfnValidationTask.next(new stepFunction.Choice(this, 'Is Valid?')
+            .when(stepFunction.Condition.booleanEquals('$.Payload.valid', true), sfnFacialMatchDefinition)
+            .otherwise(sfnFailure));
+
         const eKycStateMachine = new stepFunction.StateMachine(this, 'eKyc-state-machine', {
-            definition: sfnValidationTask.next(new stepFunction.Choice(this, 'Is Valid?')
-                .when(stepFunction.Condition.booleanEquals('$.Payload.valid', true), sfnSuccess)
-                .otherwise(sfnFailure)),
+            definition: sfnValidationDefinition,
             timeout: cdk.Duration.seconds(300),
             stateMachineType: stepFunction.StateMachineType.EXPRESS,
             logs: {
@@ -164,6 +187,38 @@ export class EKycInfraStack extends cdk.Stack {
         });
 
         eKycJobsTable.grantReadData(eKycSfnValidateRequestHandler);
+        eKycJobsTable.grantReadWriteData(eKycSfnFacialMatchHandler);
+
+        eKycImageBucket.grantRead(eKycSfnFacialMatchHandler);
+
+        // Allow Lambda to invoke Rekognition
+        const allowFacialMatchInvocation = new iam.PolicyStatement({
+            effect: iam.Effect.ALLOW,
+            actions: ["rekognition:*",],
+            resources: ["*"]
+        });
+
+        eKycSfnFacialMatchHandler.addToRolePolicy(allowFacialMatchInvocation);
+
+        // Create Service role for Rekognition
+        const allowS3BucketRead = new iam.PolicyDocument({
+            statements: [
+                new iam.PolicyStatement({
+                    effect: iam.Effect.ALLOW,
+                    resources: [`${eKycImageBucket.bucketArn}/*`],
+                    actions: ['s3:*'],
+                }),
+            ],
+        });
+
+        // Rekognition Service Role
+        const rekognitionRole = new iam.Role(this, 'rekognition-service-role', {
+            assumedBy: new iam.ServicePrincipal('rekognition.amazonaws.com'),
+            description: 'Allow Rekognition to access S3 bucket',
+            inlinePolicies: {
+                AllowS3BucketRead: allowS3BucketRead,
+            },
+        });
 
         // const eKycQueueHandler = new NodejsFunction(this, 'eKyc-queue-handler', {
         //     entry: 'src/sqs/trigger-step-function.ts',
@@ -228,6 +283,18 @@ export class EKycInfraStack extends cdk.Stack {
             value: eKycSfnValidateRequestHandler.functionName,
             description: 'eKyc State Machine Validate Request Handler Name',
             exportName: 'eKyc:sfn:validateRequestHandlerName',
+        });
+
+        new cdk.CfnOutput(this, 'eKyc-sfn-facial-match-handler-name', {
+            value: eKycSfnFacialMatchHandler.functionName,
+            description: 'eKyc State Machine Facial Match Handler Name',
+            exportName: 'eKyc:sfn:facialMatchHandlerHandlerName',
+        });
+
+        new cdk.CfnOutput(this, 'eKyc-rekognition-service-role-arn', {
+            value: rekognitionRole.roleArn,
+            description: 'eKyc Rekognition Service Role ARN',
+            exportName: 'eKyc:roles:rekognitionRole',
         });
 
         // new cdk.CfnOutput(this, 'eKyc-queue-handler-name', {

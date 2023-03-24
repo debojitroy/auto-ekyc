@@ -50,6 +50,7 @@ export const validateHandler = async (event: ValidationRequest): Promise<Validat
             address: request.Item.address && request.Item.address.S ? request.Item.address.S : '',
             date_of_birth: request.Item.date_of_birth && request.Item.date_of_birth.S ? request.Item.date_of_birth.S : '',
             id_number: request.Item.id_number && request.Item.id_number.S ? request.Item.id_number.S : '',
+            s3_bucket: request.Item.s3_bucket && request.Item.s3_bucket.S ? request.Item.s3_bucket.S : '',
             id_type: request.Item.id_type && request.Item.id_type.S ? request.Item.id_type.S : '',
             id_front: request.Item.id_front && request.Item.id_front.S ? request.Item.id_front.S : '',
             id_back: request.Item.id_back && request.Item.id_back.S ? request.Item.id_back.S : '',
@@ -69,6 +70,4 @@ export const validateHandler = async (event: ValidationRequest): Promise<Validat
         response.message = 'Internal Server Error';
         return response;
     }
-
-
 }

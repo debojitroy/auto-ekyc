@@ -5,6 +5,7 @@ export interface EKycRequest {
     name: string;
     date_of_birth: string;
     id_number: string;
+    s3_bucket: string;
     id_type: string;
     address: string;
     creation_time: number;
