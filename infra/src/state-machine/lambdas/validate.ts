@@ -56,10 +56,11 @@ export const validateHandler = async (event: ValidationRequest): Promise<Validat
             selfie: request.Item.selfie && request.Item.selfie.S ? request.Item.selfie.S : '',
             creation_time: request.Item.creation_time && request.Item.creation_time.N ? parseInt(request.Item.creation_time.N) : 0,
             update_time: request.Item.update_time && request.Item.update_time.N ? parseInt(request.Item.update_time.N) : 0,
+            complete: request.Item.complete && request.Item.complete.BOOL ? request.Item.complete.BOOL : false,
         }
 
-        response.message = 'Request is Valid';
-        response.valid = true;
+        response.message = response.request.complete ? 'Request is Completed, Cannot run again' : 'Request is VALID';
+        response.valid = !response.request.complete;
 
         console.log(response);
         return response;

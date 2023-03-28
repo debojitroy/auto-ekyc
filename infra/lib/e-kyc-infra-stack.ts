@@ -16,6 +16,7 @@ import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as stepFunction from 'aws-cdk-lib/aws-stepfunctions';
 import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import {LogLevel} from 'aws-cdk-lib/aws-stepfunctions';
+import * as sfn from "aws-cdk-lib/aws-stepfunctions";
 
 // import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
 
@@ -154,6 +155,39 @@ export class EKycInfraStack extends cdk.Stack {
             timeout: cdk.Duration.seconds(90),
         });
 
+        const eKycSfnExternalIdValidationHandler = new NodejsFunction(this, 'eKyc-sfn-ext-validation-handler', {
+            entry: 'src/state-machine/lambdas/external-validate-id.ts',
+            handler: 'externalValidateId',
+            runtime: lambda.Runtime.NODEJS_18_X,
+            environment: {
+                'DYNAMODB_TABLE': eKycJobsTable.tableName,
+            },
+            logRetention: RetentionDays.THREE_DAYS,
+            timeout: cdk.Duration.seconds(90),
+        });
+
+        const eKycSfnMarkSuccessHandler = new NodejsFunction(this, 'eKyc-sfn-mark-success-handler', {
+            entry: 'src/state-machine/lambdas/mark-success.ts',
+            handler: 'markSuccess',
+            runtime: lambda.Runtime.NODEJS_18_X,
+            environment: {
+                'DYNAMODB_TABLE': eKycJobsTable.tableName,
+            },
+            logRetention: RetentionDays.THREE_DAYS,
+            timeout: cdk.Duration.seconds(90),
+        });
+
+        const eKycSfnMarkFailedHandler = new NodejsFunction(this, 'eKyc-sfn-mark-failed-handler', {
+            entry: 'src/state-machine/lambdas/mark-failed.ts',
+            handler: 'markFailed',
+            runtime: lambda.Runtime.NODEJS_18_X,
+            environment: {
+                'DYNAMODB_TABLE': eKycJobsTable.tableName,
+            },
+            logRetention: RetentionDays.THREE_DAYS,
+            timeout: cdk.Duration.seconds(90),
+        });
+
         const sfnSuccess = new stepFunction.Succeed(this, 'eKyc-state-machine-succeed', {
             comment: 'eKyc state machine succeed',
             outputPath: '$',
@@ -164,6 +198,28 @@ export class EKycInfraStack extends cdk.Stack {
             error: '$.message',
         });
 
+        const sfnSuccessTask = new tasks.LambdaInvoke(this, 'sfn-success-task', {
+            lambdaFunction: eKycSfnMarkSuccessHandler,
+            inputPath: '$.Payload',
+            outputPath: '$',
+        }).next(sfnSuccess);
+
+        const sfnFailureTask = new tasks.LambdaInvoke(this, 'sfn-failure-task', {
+            lambdaFunction: eKycSfnMarkFailedHandler,
+            inputPath: '$.Payload',
+            outputPath: '$',
+        }).next(sfnFailure);
+
+        const sfnExternalIdValidationTask = new tasks.LambdaInvoke(this, 'sfn-external-id-validation-request', {
+            lambdaFunction: eKycSfnExternalIdValidationHandler,
+            inputPath: '$.Payload',
+            outputPath: '$',
+        });
+
+        const sfnExternalValidationDefinition = sfnExternalIdValidationTask.next(new stepFunction.Choice(this, 'Document Valid?')
+            .when(stepFunction.Condition.booleanEquals('$.Payload.validDocument', true), sfnSuccessTask)
+            .otherwise(sfnFailureTask));
+
         const sfnTextExtractionTask = new tasks.LambdaInvoke(this, 'sfn-text-extraction-request', {
             lambdaFunction: eKycSfnTextExtractionHandler,
             inputPath: '$.Payload.request',
@@ -171,8 +227,8 @@ export class EKycInfraStack extends cdk.Stack {
         });
 
         const sfnTextExtractionDefinition = sfnTextExtractionTask.next(new stepFunction.Choice(this, 'Details Extractable?')
-            .when(stepFunction.Condition.booleanEquals('$.Payload.success', true), sfnSuccess)
-            .otherwise(sfnFailure));
+            .when(stepFunction.Condition.booleanEquals('$.Payload.success', true), sfnExternalValidationDefinition)
+            .otherwise(sfnFailureTask));
 
         const sfnFacialMatchTask = new tasks.LambdaInvoke(this, 'sfn-facial-match-request', {
             lambdaFunction: eKycSfnFacialMatchHandler,
@@ -182,7 +238,7 @@ export class EKycInfraStack extends cdk.Stack {
 
         const sfnFacialMatchDefinition = sfnFacialMatchTask.next(new stepFunction.Choice(this, 'Face Matches?')
             .when(stepFunction.Condition.booleanEquals('$.Payload.match', true), sfnTextExtractionDefinition)
-            .otherwise(sfnFailure));
+            .otherwise(sfnFailureTask));
 
         const sfnValidationTask = new tasks.LambdaInvoke(this, 'sfn-validate-request', {
             lambdaFunction: eKycSfnValidateRequestHandler,
@@ -191,7 +247,7 @@ export class EKycInfraStack extends cdk.Stack {
 
         const sfnValidationDefinition = sfnValidationTask.next(new stepFunction.Choice(this, 'Is Valid?')
             .when(stepFunction.Condition.booleanEquals('$.Payload.valid', true), sfnFacialMatchDefinition)
-            .otherwise(sfnFailure));
+            .otherwise(sfnFailureTask));
 
         const eKycStateMachine = new stepFunction.StateMachine(this, 'eKyc-state-machine', {
             definition: sfnValidationDefinition,
@@ -210,6 +266,9 @@ export class EKycInfraStack extends cdk.Stack {
         eKycJobsTable.grantReadData(eKycSfnValidateRequestHandler);
         eKycJobsTable.grantReadWriteData(eKycSfnFacialMatchHandler);
         eKycJobsTable.grantReadWriteData(eKycSfnTextExtractionHandler);
+        eKycJobsTable.grantReadWriteData(eKycSfnExternalIdValidationHandler);
+        eKycJobsTable.grantReadWriteData(eKycSfnMarkSuccessHandler);
+        eKycJobsTable.grantReadWriteData(eKycSfnMarkFailedHandler);
 
         eKycImageBucket.grantRead(eKycSfnFacialMatchHandler);
         eKycImageBucket.grantRead(eKycSfnTextExtractionHandler);

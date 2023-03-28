@@ -7,7 +7,7 @@ import {ExtractTextResponse, parseTextResponse} from '../../handlers/extractIdDe
 export const extractText = async (request: EKycRequest): Promise<ExtractTextResponse> => {
     const dynamoDbTable = process.env.DYNAMODB_TABLE || '';
 
-    const extractResponse: ExtractTextResponse = {
+    let extractResponse: ExtractTextResponse = {
         success: false,
         request,
         message: 'Something went wrong',
@@ -34,7 +34,7 @@ export const extractText = async (request: EKycRequest): Promise<ExtractTextResp
 
         console.log('Successfully extracted text from document');
 
-        return parseTextResponse(request, response, request.id_type);
+        extractResponse = parseTextResponse(request, response, request.id_type);
     } catch (error) {
         console.error('Failed to extract text from document', error);
         extractResponse.message = 'Internal server error';

@@ -7,7 +7,6 @@ export interface ExtractTextResponse {
     details?: {
         name?: string;
         date_of_birth?: string;
-        address?: string;
         id_number?: string;
     }
     request: EKycRequest;

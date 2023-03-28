@@ -12,4 +12,5 @@ export interface EKycRequest {
     update_time: number;
     id_front: string;
     selfie: string;
+    complete?: boolean;
 }
