@@ -164,6 +164,16 @@ export class EKycInfraStack extends cdk.Stack {
             error: '$.message',
         });
 
+        const sfnTextExtractionTask = new tasks.LambdaInvoke(this, 'sfn-text-extraction-request', {
+            lambdaFunction: eKycSfnTextExtractionHandler,
+            inputPath: '$.Payload.request',
+            outputPath: '$',
+        });
+
+        const sfnTextExtractionDefinition = sfnTextExtractionTask.next(new stepFunction.Choice(this, 'Details Extractable?')
+            .when(stepFunction.Condition.booleanEquals('$.Payload.success', true), sfnSuccess)
+            .otherwise(sfnFailure));
+
         const sfnFacialMatchTask = new tasks.LambdaInvoke(this, 'sfn-facial-match-request', {
             lambdaFunction: eKycSfnFacialMatchHandler,
             inputPath: '$.Payload.request',
@@ -171,7 +181,7 @@ export class EKycInfraStack extends cdk.Stack {
         });
 
         const sfnFacialMatchDefinition = sfnFacialMatchTask.next(new stepFunction.Choice(this, 'Face Matches?')
-            .when(stepFunction.Condition.booleanEquals('$.Payload.match', true), sfnSuccess)
+            .when(stepFunction.Condition.booleanEquals('$.Payload.match', true), sfnTextExtractionDefinition)
             .otherwise(sfnFailure));
 
         const sfnValidationTask = new tasks.LambdaInvoke(this, 'sfn-validate-request', {
@@ -199,6 +209,7 @@ export class EKycInfraStack extends cdk.Stack {
 
         eKycJobsTable.grantReadData(eKycSfnValidateRequestHandler);
         eKycJobsTable.grantReadWriteData(eKycSfnFacialMatchHandler);
+        eKycJobsTable.grantReadWriteData(eKycSfnTextExtractionHandler);
 
         eKycImageBucket.grantRead(eKycSfnFacialMatchHandler);
         eKycImageBucket.grantRead(eKycSfnTextExtractionHandler);
@@ -319,6 +330,12 @@ export class EKycInfraStack extends cdk.Stack {
             value: eKycSfnFacialMatchHandler.functionName,
             description: 'eKyc State Machine Facial Match Handler Name',
             exportName: 'eKyc:sfn:facialMatchHandlerHandlerName',
+        });
+
+        new cdk.CfnOutput(this, 'eKyc-sfn-text-extraction-handler-name', {
+            value: eKycSfnTextExtractionHandler.functionName,
+            description: 'eKyc State Machine Text Extraction Handler Name',
+            exportName: 'eKyc:sfn:textExtractionHandlerName',
         });
 
         new cdk.CfnOutput(this, 'eKyc-rekognition-service-role-arn', {

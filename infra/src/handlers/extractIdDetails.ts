@@ -1,4 +1,5 @@
 import {AnalyzeDocumentCommandOutput} from "@aws-sdk/client-textract";
+import {EKycRequest} from "../state-machine/types/request";
 
 export interface ExtractTextResponse {
     success: boolean;
@@ -9,30 +10,32 @@ export interface ExtractTextResponse {
         address?: string;
         id_number?: string;
     }
+    request: EKycRequest;
     raw_response?: any;
     message?: string;
 }
 
-export const parseTextResponse = (response: AnalyzeDocumentCommandOutput, id_type: string): ExtractTextResponse => {
+export const parseTextResponse = (request: EKycRequest, response: AnalyzeDocumentCommandOutput, id_type: string): ExtractTextResponse => {
     if (!response || !response.Blocks || response.Blocks.length === 0) {
         return {
             success: false,
             id_type,
             message: 'No response or no blocks found',
             raw_response: response,
+            request,
         }
     }
 
     switch (id_type.toUpperCase()) {
         case 'AADHAAR':
-            const aadhaarDetails = extractAadhaarDetails(response);
+            const aadhaarDetails = extractAadhaarDetails(request, response);
             return {
                 ...aadhaarDetails,
                 id_type,
                 raw_response: response,
             };
         case 'PAN':
-            const panDetails = extractPanDetails(response);
+            const panDetails = extractPanDetails(request, response);
             return {
                 ...panDetails,
                 id_type,
@@ -44,18 +47,20 @@ export const parseTextResponse = (response: AnalyzeDocumentCommandOutput, id_typ
                 id_type,
                 message: 'Unsupported ID type',
                 raw_response: response,
+                request,
             };
     }
 }
 
-const extractAadhaarDetails = (response: AnalyzeDocumentCommandOutput): ExtractTextResponse => {
+const extractAadhaarDetails = (request: EKycRequest, response: AnalyzeDocumentCommandOutput): ExtractTextResponse => {
     // Filter the details
     const filteredLines = response.Blocks!.filter(block => (block.BlockType === 'LINE' && block.Confidence && block.Confidence > 75));
 
     if (filteredLines.length === 0) {
         return {
             success: false,
-            message: 'No Lines found with high confidence'
+            message: 'No Lines found with high confidence',
+            request,
         }
     }
 
@@ -70,7 +75,8 @@ const extractAadhaarDetails = (response: AnalyzeDocumentCommandOutput): ExtractT
     if (nameData.length === 0 || !nameData[0].Text || nameData[0].Text.trim().length === 0) {
         return {
             success: false,
-            message: 'No Name found'
+            message: 'No Name found',
+            request,
         }
     }
 
@@ -89,7 +95,8 @@ const extractAadhaarDetails = (response: AnalyzeDocumentCommandOutput): ExtractT
         || dateOfBirthData[0].Text.trim().split(' ').length !== 2) {
         return {
             success: false,
-            message: 'No Date of Birth found'
+            message: 'No Date of Birth found',
+            request,
         }
     }
 
@@ -107,7 +114,8 @@ const extractAadhaarDetails = (response: AnalyzeDocumentCommandOutput): ExtractT
         || aadhaarNumberData[0].Text.trim().length === 0) {
         return {
             success: false,
-            message: 'No Aadhaar Number found'
+            message: 'No Aadhaar Number found',
+            request,
         }
     }
 
@@ -119,18 +127,20 @@ const extractAadhaarDetails = (response: AnalyzeDocumentCommandOutput): ExtractT
             name,
             date_of_birth: dateOfBirth,
             id_number: aadhaarNumber
-        }
+        },
+        request,
     }
 }
 
-const extractPanDetails = (response: AnalyzeDocumentCommandOutput): ExtractTextResponse => {
+const extractPanDetails = (request: EKycRequest, response: AnalyzeDocumentCommandOutput): ExtractTextResponse => {
     // Filter the details
     const filteredLines = response.Blocks!.filter(block => (block.BlockType === 'LINE' && block.Confidence && block.Confidence > 90));
 
     if (filteredLines.length === 0) {
         return {
             success: false,
-            message: 'No Lines found with high confidence'
+            message: 'No Lines found with high confidence',
+            request,
         }
     }
 
@@ -148,7 +158,8 @@ const extractPanDetails = (response: AnalyzeDocumentCommandOutput): ExtractTextR
     if (panData.length === 0 || !panData[0].Text || panData[0].Text.trim().length === 0) {
         return {
             success: false,
-            message: 'No PAN Number found'
+            message: 'No PAN Number found',
+            request,
         }
     }
 
@@ -167,7 +178,8 @@ const extractPanDetails = (response: AnalyzeDocumentCommandOutput): ExtractTextR
     if (nameData.length === 0 || !nameData[0].Text || nameData[0].Text.trim().length === 0) {
         return {
             success: false,
-            message: 'No Name found'
+            message: 'No Name found',
+            request,
         }
     }
 
@@ -188,7 +200,8 @@ const extractPanDetails = (response: AnalyzeDocumentCommandOutput): ExtractTextR
         || dateOfBirthData[0].Text.trim().length === 0) {
         return {
             success: false,
-            message: 'No Date of Birth found'
+            message: 'No Date of Birth found',
+            request,
         }
     }
 
@@ -200,6 +213,7 @@ const extractPanDetails = (response: AnalyzeDocumentCommandOutput): ExtractTextR
             name,
             date_of_birth: dateOfBirth,
             id_number: pan,
-        }
+        },
+        request,
     };
 }

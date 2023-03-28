@@ -9,6 +9,7 @@ export const extractText = async (request: EKycRequest): Promise<ExtractTextResp
 
     const extractResponse: ExtractTextResponse = {
         success: false,
+        request,
         message: 'Something went wrong',
     };
 
@@ -31,12 +32,24 @@ export const extractText = async (request: EKycRequest): Promise<ExtractTextResp
 
         const response = await client.send(command);
 
-        console.log('Extracted text from document');
+        console.log('Successfully extracted text from document');
 
-        return parseTextResponse(response, request.id_type);
+        return parseTextResponse(request, response, request.id_type);
     } catch (error) {
-        console.log('Failed to extract text from document', error);
-        extractResponse.message = 'Failed to extract text from document';
+        console.error('Failed to extract text from document', error);
+        extractResponse.message = 'Internal server error';
+    } finally {
+        try {
+            // Update item in DynamoDB
+            const updateResult = await updateItem(dynamoDbTable, request.user_id, request.request_id, {
+                update_time: {Value: {N: Date.now().toString()}},
+                status: {Value: {S: extractResponse.success ? 'ID_TEXT_EXTRACTED_SUCCESSFULLY' : 'ID_TEXT_EXTRACTION_FAILED'}},
+                error: {Value: {S: extractResponse.message || ''}},
+            });
+            console.log('Updated record: ', updateResult);
+        } catch (error) {
+            console.error('Failed to update record: ', error);
+        }
     }
 
     return extractResponse;
