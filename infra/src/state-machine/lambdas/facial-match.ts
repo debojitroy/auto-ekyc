@@ -5,6 +5,7 @@ import {updateItem} from "../../actions/requests/store";
 export interface FacialMatchResponse {
     match: boolean;
     confidence: number;
+    request: EKycRequest;
     raw_response?: any;
     message?: string;
 }
@@ -14,6 +15,7 @@ export const facialMatch = async (request: EKycRequest): Promise<FacialMatchResp
     let facialMatchResponse: FacialMatchResponse = {
         match: false,
         confidence: 0,
+        request,
     }
 
     const rekognitionClient = new RekognitionClient({});
@@ -44,6 +46,7 @@ export const facialMatch = async (request: EKycRequest): Promise<FacialMatchResp
             confidence: hasMatches ? response!.FaceMatches![0]!.Similarity! : 0,
             raw_response: response,
             message: !hasMatches ? 'No face matches' : undefined,
+            request: {...request, status: 'FACIAL_MATCHED_SUCCESSFULLY'},
         }
     } catch (error) {
         console.error('Failed to match faces: ', error);
@@ -52,6 +55,7 @@ export const facialMatch = async (request: EKycRequest): Promise<FacialMatchResp
             match: false,
             confidence: 0,
             message: 'Internal Server Error',
+            request: {...request, status: 'FACIAL_MATCH_FAILED'},
         };
     } finally {
         try {

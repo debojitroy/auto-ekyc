@@ -53,7 +53,6 @@ export const validateHandler = async (event: ValidationRequest): Promise<Validat
             s3_bucket: request.Item.s3_bucket && request.Item.s3_bucket.S ? request.Item.s3_bucket.S : '',
             id_type: request.Item.id_type && request.Item.id_type.S ? request.Item.id_type.S : '',
             id_front: request.Item.id_front && request.Item.id_front.S ? request.Item.id_front.S : '',
-            id_back: request.Item.id_back && request.Item.id_back.S ? request.Item.id_back.S : '',
             selfie: request.Item.selfie && request.Item.selfie.S ? request.Item.selfie.S : '',
             creation_time: request.Item.creation_time && request.Item.creation_time.N ? parseInt(request.Item.creation_time.N) : 0,
             update_time: request.Item.update_time && request.Item.update_time.N ? parseInt(request.Item.update_time.N) : 0,

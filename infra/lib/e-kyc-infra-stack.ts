@@ -143,6 +143,17 @@ export class EKycInfraStack extends cdk.Stack {
             timeout: cdk.Duration.seconds(90),
         });
 
+        const eKycSfnTextExtractionHandler = new NodejsFunction(this, 'eKyc-sfn-text-extraction-handler', {
+            entry: 'src/state-machine/lambdas/extract-text.ts',
+            handler: 'extractText',
+            runtime: lambda.Runtime.NODEJS_18_X,
+            environment: {
+                'DYNAMODB_TABLE': eKycJobsTable.tableName,
+            },
+            logRetention: RetentionDays.THREE_DAYS,
+            timeout: cdk.Duration.seconds(90),
+        });
+
         const sfnSuccess = new stepFunction.Succeed(this, 'eKyc-state-machine-succeed', {
             comment: 'eKyc state machine succeed',
             outputPath: '$',
@@ -190,6 +201,7 @@ export class EKycInfraStack extends cdk.Stack {
         eKycJobsTable.grantReadWriteData(eKycSfnFacialMatchHandler);
 
         eKycImageBucket.grantRead(eKycSfnFacialMatchHandler);
+        eKycImageBucket.grantRead(eKycSfnTextExtractionHandler);
 
         // Allow Lambda to invoke Rekognition
         const allowFacialMatchInvocation = new iam.PolicyStatement({
@@ -199,6 +211,15 @@ export class EKycInfraStack extends cdk.Stack {
         });
 
         eKycSfnFacialMatchHandler.addToRolePolicy(allowFacialMatchInvocation);
+
+        // Allow Lambda to invoke Textract
+        const allowTextractInvocation = new iam.PolicyStatement({
+            effect: iam.Effect.ALLOW,
+            actions: ["textract:*",],
+            resources: ["*"]
+        });
+
+        eKycSfnTextExtractionHandler.addToRolePolicy(allowTextractInvocation);
 
         // Create Service role for Rekognition
         const allowS3BucketRead = new iam.PolicyDocument({
@@ -215,6 +236,15 @@ export class EKycInfraStack extends cdk.Stack {
         const rekognitionRole = new iam.Role(this, 'rekognition-service-role', {
             assumedBy: new iam.ServicePrincipal('rekognition.amazonaws.com'),
             description: 'Allow Rekognition to access S3 bucket',
+            inlinePolicies: {
+                AllowS3BucketRead: allowS3BucketRead,
+            },
+        });
+
+        // Textract Service Role
+        const textractRole = new iam.Role(this, 'textract-service-role', {
+            assumedBy: new iam.ServicePrincipal('textract.amazonaws.com'),
+            description: 'Allow Textract to access S3 bucket',
             inlinePolicies: {
                 AllowS3BucketRead: allowS3BucketRead,
             },
@@ -295,6 +325,12 @@ export class EKycInfraStack extends cdk.Stack {
             value: rekognitionRole.roleArn,
             description: 'eKyc Rekognition Service Role ARN',
             exportName: 'eKyc:roles:rekognitionRole',
+        });
+
+        new cdk.CfnOutput(this, 'eKyc-textract-service-role-arn', {
+            value: textractRole.roleArn,
+            description: 'eKyc Textract Service Role ARN',
+            exportName: 'eKyc:roles:textractRole',
         });
 
         // new cdk.CfnOutput(this, 'eKyc-queue-handler-name', {

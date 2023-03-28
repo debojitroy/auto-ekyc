@@ -11,6 +11,5 @@ export interface EKycRequest {
     creation_time: number;
     update_time: number;
     id_front: string;
-    id_back: string;
     selfie: string;
 }
