@@ -7,7 +7,6 @@ export interface EKycRequest {
     id_number: string;
     s3_bucket: string;
     id_type: string;
-    address: string;
     creation_time: number;
     update_time: number;
     id_front: string;

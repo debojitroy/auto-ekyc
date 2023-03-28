@@ -1,10 +1,6 @@
+import {ValidationRequest} from '../types/triggerInput';
 import {EKycRequest} from '../types/request';
 import {getItem} from '../../actions/requests/store';
-
-export interface ValidationRequest {
-    user_id: string;
-    request_id: string;
-}
 
 export interface ValidationResponse {
     valid: boolean;
@@ -12,7 +8,7 @@ export interface ValidationResponse {
     request?: EKycRequest;
 }
 
-// Create a lambda function to validate the request
+// Create a lambdas function to validate the request
 export const validateHandler = async (event: ValidationRequest): Promise<ValidationResponse> => {
     const eKyc_table = process.env.DYNAMODB_TABLE;
 
@@ -47,7 +43,6 @@ export const validateHandler = async (event: ValidationRequest): Promise<Validat
             request_id: request.Item.s_key && request.Item.s_key.S ? request.Item.s_key.S : '',
             status: request.Item.status && request.Item.status.S ? request.Item.status.S : '',
             name: request.Item.name && request.Item.name.S ? request.Item.name.S : '',
-            address: request.Item.address && request.Item.address.S ? request.Item.address.S : '',
             date_of_birth: request.Item.date_of_birth && request.Item.date_of_birth.S ? request.Item.date_of_birth.S : '',
             id_number: request.Item.id_number && request.Item.id_number.S ? request.Item.id_number.S : '',
             s3_bucket: request.Item.s3_bucket && request.Item.s3_bucket.S ? request.Item.s3_bucket.S : '',
