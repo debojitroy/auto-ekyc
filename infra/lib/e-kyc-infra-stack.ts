@@ -11,9 +11,10 @@ import {BillingMode} from 'aws-cdk-lib/aws-dynamodb';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as stepFunction from 'aws-cdk-lib/aws-stepfunctions';
-import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import {LogLevel} from 'aws-cdk-lib/aws-stepfunctions';
+import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import * as apiGateway from '@aws-cdk/aws-apigatewayv2-alpha';
+import {CorsHttpMethod} from '@aws-cdk/aws-apigatewayv2-alpha';
 import * as apiGatewayAuthorizers from '@aws-cdk/aws-apigatewayv2-authorizers-alpha';
 import * as apiGatewayIntegrations from '@aws-cdk/aws-apigatewayv2-integrations-alpha';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
@@ -93,8 +94,27 @@ export class EKycInfraStack extends cdk.Stack {
             timeout: cdk.Duration.seconds(60),
         });
 
+        const eKycApiGetRequestStatusHandler = new NodejsFunction(this, 'eKyc-api-get-request-status-handler', {
+            entry: 'src/api/lambdas/ekyc/status-check.ts',
+            handler: 'handler',
+            runtime: lambda.Runtime.NODEJS_18_X,
+            environment: {
+                'DYNAMODB_TABLE': eKycJobsTable.tableName,
+            },
+            logRetention: RetentionDays.THREE_DAYS,
+            timeout: cdk.Duration.seconds(60),
+        });
+
         // Create the API
-        const ekycHttpApi = new apiGateway.HttpApi(this, 'eKyc-api', {});
+        const ekycHttpApi = new apiGateway.HttpApi(this, 'eKyc-api', {
+            corsPreflight: {
+                allowOrigins: ['https://*', 'http://localhost:3000'],
+                allowHeaders: ['Authorization', '*'],
+                allowMethods: [CorsHttpMethod.ANY],
+                allowCredentials: true,
+                maxAge: cdk.Duration.days(365),
+            }
+        });
 
         // Create the Authorizer
         const ekycApiAuthorizer = new apiGatewayAuthorizers.HttpUserPoolAuthorizer(
@@ -112,6 +132,16 @@ export class EKycInfraStack extends cdk.Stack {
             integration: new apiGatewayIntegrations.HttpLambdaIntegration(
                 'ekyc-api-create-request-route',
                 eKycApiCreateRequestHandler,
+            ),
+            path: '/ekyc',
+            authorizer: ekycApiAuthorizer
+        });
+
+        ekycHttpApi.addRoutes({
+            methods: [apiGateway.HttpMethod.GET],
+            integration: new apiGatewayIntegrations.HttpLambdaIntegration(
+                'ekyc-api-get-request-status-route',
+                eKycApiGetRequestStatusHandler,
             ),
             path: '/ekyc',
             authorizer: ekycApiAuthorizer
@@ -271,6 +301,7 @@ export class EKycInfraStack extends cdk.Stack {
 
         // Allow lambdas to access DynamoDB
         eKycJobsTable.grantReadWriteData(eKycApiCreateRequestHandler);
+        eKycJobsTable.grantReadData(eKycApiGetRequestStatusHandler);
         eKycJobsTable.grantReadData(eKycSfnValidateRequestHandler);
         eKycJobsTable.grantReadWriteData(eKycSfnFacialMatchHandler);
         eKycJobsTable.grantReadWriteData(eKycSfnTextExtractionHandler);
@@ -429,6 +460,18 @@ export class EKycInfraStack extends cdk.Stack {
             value: ekycHttpApi.url || ekycHttpApi.apiEndpoint,
             description: 'eKyc Http API Url',
             exportName: 'eKyc:ApiUrl',
+        });
+
+        new cdk.CfnOutput(this, 'eKyc-api-create-request-handler-name', {
+            value: eKycApiCreateRequestHandler.functionName,
+            description: 'eKyc API Create Request Handler Name',
+            exportName: 'eKyc:api:createRequestHandlerName',
+        });
+
+        new cdk.CfnOutput(this, 'eKyc-api-get-request-status-handler-name', {
+            value: eKycApiGetRequestStatusHandler.functionName,
+            description: 'eKyc API Get Request Status Handler Name',
+            exportName: 'eKyc:api:getRequestStatusHandlerName',
         });
     }
 }

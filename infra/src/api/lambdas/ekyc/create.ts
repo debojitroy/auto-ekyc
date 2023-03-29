@@ -83,7 +83,6 @@ export const handler = async (
         throw new Error('No SQS Queue found');
     }
 
-    console.log('This function can only be invoked by authorized users');
     console.log('event', JSON.stringify(event, null, 2));
 
     const userId = event.requestContext.authorizer.jwt.claims.sub as string;
@@ -102,7 +101,13 @@ export const handler = async (
     try {
         if (!event.body) {
             console.error('Invalid or missing body');
-            return {body: JSON.stringify({message: 'No body found'}), statusCode: constants.HTTP_STATUS_BAD_REQUEST};
+            return {
+                body: JSON.stringify({message: 'No body found'}),
+                statusCode: constants.HTTP_STATUS_BAD_REQUEST,
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            };
         }
 
         console.log('Parsing Request Body');
@@ -111,7 +116,13 @@ export const handler = async (
         // Validate body
         if (!body.name || !body.date_of_birth || !body.id_number || !body.id_type || !body.id_front || !body.selfie) {
             console.error('Invalid or missing body values');
-            return {body: JSON.stringify({message: 'Invalid body'}), statusCode: constants.HTTP_STATUS_BAD_REQUEST};
+            return {
+                body: JSON.stringify({message: 'Invalid body'}),
+                statusCode: constants.HTTP_STATUS_BAD_REQUEST,
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            };
         }
 
         // Save files to disk
@@ -181,14 +192,20 @@ export const handler = async (
 
         return {
             body: JSON.stringify({message: 'SUCCESS', userId, requestId}),
-            statusCode: constants.HTTP_STATUS_ACCEPTED
+            statusCode: constants.HTTP_STATUS_ACCEPTED,
+            headers: {
+                'Content-Type': 'application/json',
+            }
         };
     } catch (error) {
         console.log('Failed to create request: ', error);
 
         return {
             body: JSON.stringify({message: 'Failed to create request', error}),
-            statusCode: constants.HTTP_STATUS_INTERNAL_SERVER_ERROR
+            statusCode: constants.HTTP_STATUS_INTERNAL_SERVER_ERROR,
+            headers: {
+                'Content-Type': 'application/json',
+            }
         };
     } finally {
         console.log('Cleaning up files');
